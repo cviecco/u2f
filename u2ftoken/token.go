@@ -145,11 +145,11 @@ func encodeAuthenticateRequest(req AuthenticateRequest) ([]byte, error) {
 	return buf, nil
 }
 
-// Authenticate peforms an authentication operation and returns the response to
-// provide to the relying party. It returns ErrPresenceRequired if the call
+// AuthenticateRaw peforms an authentication operation and returns the raw bytes
+// returned by the u2f token. It returns ErrPresenceRequired if the call
 // should be retried after proof of user presence is provided to the token and
 // ErrUnknownKeyHandle if the key handle is unknown to the token.
-func (t *Token) Authenticate(req AuthenticateRequest) (*AuthenticateResponse, error) {
+func (t *Token) AuthenticateRaw(req AuthenticateRequest) ([]byte, error) {
 	buf, err := encodeAuthenticateRequest(req)
 	if err != nil {
 		return nil, err
@@ -174,10 +174,21 @@ func (t *Token) Authenticate(req AuthenticateRequest) (*AuthenticateResponse, er
 	if len(res.Data) < 6 {
 		return nil, fmt.Errorf("u2ftoken: authenticate response is too short, got %d bytes", len(res.Data))
 	}
+	return res.Data, nil
+}
 
+// Authenticate peforms an authentication operation and returns the response to
+// provide to the relying party. It returns ErrPresenceRequired if the call
+// should be retried after proof of user presence is provided to the token and
+// ErrUnknownKeyHandle if the key handle is unknown to the token.
+func (t *Token) Authenticate(req AuthenticateRequest) (*AuthenticateResponse, error) {
+	data, err := t.AuthenticateRaw(req)
+	if err != nil {
+		return nil, err
+	}
 	return &AuthenticateResponse{
-		Counter:   binary.BigEndian.Uint32(res.Data[1:]),
-		Signature: res.Data[5:],
+		Counter:   binary.BigEndian.Uint32(data[1:]),
+		Signature: data[5:],
 	}, nil
 }
 
